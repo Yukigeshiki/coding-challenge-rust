@@ -1,4 +1,5 @@
-use crate::handlers::health_check;
+use std::net::TcpListener;
+
 use axum::http::{HeaderValue, Method};
 use axum::{
     http::Request,
@@ -6,7 +7,7 @@ use axum::{
     Router, Server,
 };
 use hyper::server::conn::AddrIncoming;
-use std::net::TcpListener;
+use reqwest::Client;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tower_http::{
@@ -16,6 +17,8 @@ use tower_http::{
 };
 use tracing::Level;
 use uuid::Uuid;
+
+use crate::handlers::{get_fact, health_check};
 
 pub type App = Server<AddrIncoming, IntoMakeService<Router>>;
 
@@ -31,8 +34,10 @@ impl MakeRequestId for MakeRequestUuid {
 }
 
 pub fn run(listener: TcpListener) -> hyper::Result<App> {
+    let client = Client::new();
     let app = Router::new()
         .route("/health-check", get(health_check))
+        .route("/fact", get(get_fact))
         .layer(
             CorsLayer::new()
                 .allow_origin("http://localhost:8080".parse::<HeaderValue>().unwrap())
@@ -51,7 +56,8 @@ pub fn run(listener: TcpListener) -> hyper::Result<App> {
                         .on_response(DefaultOnResponse::new().include_headers(true)),
                 )
                 .propagate_x_request_id(),
-        );
+        )
+        .with_state(client);
 
     Ok(Server::from_tcp(listener)?.serve(app.into_make_service()))
 }

@@ -1,9 +1,10 @@
+use std::net::TcpListener;
+
 use shuttle_assignment::{
     config::get_config,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
-use std::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
