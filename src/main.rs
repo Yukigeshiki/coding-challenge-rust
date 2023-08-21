@@ -11,9 +11,12 @@ async fn main() -> hyper::Result<()> {
     let sub = get_subscriber("shuttle-assignment".into(), "info".into(), std::io::stdout);
     init_subscriber(sub);
 
+    // halt the program if there are any errors reading config or binding a port
     let conf = get_config().expect("Cannot read config");
     let addr = format!("{}:{}", conf.application.host, conf.application.port);
-    let listener = TcpListener::bind(addr).expect("Unable to bind to port");
+    let listener = TcpListener::bind(&addr).expect("Unable to bind to port");
+
+    tracing::info!("Application starting on: {addr}!");
 
     run(listener)?.await
 }

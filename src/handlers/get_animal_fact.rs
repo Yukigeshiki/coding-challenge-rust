@@ -20,19 +20,20 @@ pub struct Param {
 
 /// Returns a 200 OK JSON response and an animal fact payload.
 fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
-    (
-        StatusCode::OK,
-        Json(json!({ "fact": fact, "animal": animal })),
-    )
+    let value = json!({ "fact": fact, "animal": animal });
+    tracing::info!("{value}");
+    (StatusCode::OK, Json(value))
 }
 
 /// Returns a JSON response with an HTTP error code and an error message.
 fn respond_error(code: StatusCode, error: &str) -> (StatusCode, Response) {
-    (code, Json(json!({ "error": error })))
+    let value = json!({ "error": error });
+    tracing::error!("{value}");
+    (code, Json(value))
 }
 
-#[tracing::instrument(name = "Fetching a fact", skip(client, params))]
-pub async fn get_fact(
+#[tracing::instrument(name = "Fetching an animal fact", skip(client, params))]
+pub async fn get_animal_fact(
     State(client): State<Client>,
     params: Query<Param>,
 ) -> (StatusCode, Response) {
@@ -45,7 +46,7 @@ pub async fn get_fact(
             .iter()
             .map(Animal::as_str)
             .collect();
-        animal_param = animals.choose(&mut rand::thread_rng()).expect("");
+        animal_param = animals.choose(&mut rand::thread_rng()).unwrap_or(&"dog");
     }
 
     // match on the animal param and respond with the appropriate fact or an error
@@ -56,7 +57,10 @@ pub async fn get_fact(
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
             Animal::Dog => match Dog::get_fact(&client, DOG_API_URL).await {
-                Ok(res) => respond_ok(&res.facts[0].clone(), p.as_str()),
+                Ok(res) => respond_ok(
+                    res.facts.first().unwrap_or(&"Not available".to_string()),
+                    p.as_str(),
+                ),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
         },
@@ -107,7 +111,7 @@ macro_rules! implement_get_fact {
                     .await
                     .map_err(|err| format!("Error during Request to animal API: {err:?}"))?;
                 // check status first
-                let status = res.status();
+                let status = res.status().as_u16();
                 if !res.status().is_success() {
                     Err(format!(
                         "Request to animal API failed with status code: {status}"
@@ -124,7 +128,7 @@ macro_rules! implement_get_fact {
     };
 }
 
-/// Represents the cat API return type.
+/// The cat API return type.
 #[derive(serde::Deserialize)]
 pub struct Cat {
     text: String,
@@ -139,3 +143,29 @@ pub struct Dog {
 }
 
 implement_get_fact!(Dog);
+
+#[cfg(test)]
+mod tests {
+    use crate::handlers::{Cat, Dog, CAT_API_URL, DOG_API_URL};
+    use reqwest::Client;
+
+    #[tokio::test]
+    async fn test_cat_get_fact() {
+        let client = Client::new();
+        let res = Cat::get_fact(&client, CAT_API_URL)
+            .await
+            .expect("Failed to get cat fact.");
+
+        assert!(!res.text.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_dog_get_fact() {
+        let client = Client::new();
+        let res = Dog::get_fact(&client, DOG_API_URL)
+            .await
+            .expect("Failed to get dog fact.");
+
+        assert!(!res.facts.first().expect("").is_empty());
+    }
+}

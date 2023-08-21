@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use axum::http::{HeaderValue, Method};
+use axum::http::Method;
 use axum::{
     http::Request,
     routing::{get, IntoMakeService},
@@ -9,7 +9,7 @@ use axum::{
 use hyper::server::conn::AddrIncoming;
 use reqwest::Client;
 use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::{
     request_id::{MakeRequestId, RequestId},
     trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer},
@@ -18,7 +18,7 @@ use tower_http::{
 use tracing::Level;
 use uuid::Uuid;
 
-use crate::handlers::{get_fact, health_check};
+use crate::handlers::{get_animal_fact, health_check};
 
 pub type App = Server<AddrIncoming, IntoMakeService<Router>>;
 
@@ -37,10 +37,10 @@ pub fn run(listener: TcpListener) -> hyper::Result<App> {
     let client = Client::new();
     let app = Router::new()
         .route("/health-check", get(health_check))
-        .route("/fact", get(get_fact))
+        .route("/fact", get(get_animal_fact))
         .layer(
             CorsLayer::new()
-                .allow_origin("http://localhost:8080".parse::<HeaderValue>().unwrap())
+                .allow_origin(Any)
                 .allow_methods([Method::GET]),
         )
         .layer(
