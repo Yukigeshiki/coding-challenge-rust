@@ -1,3 +1,6 @@
+use std::fmt::Display;
+use std::fmt::Formatter;
+
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::Json;
@@ -6,6 +9,8 @@ use rand::prelude::SliceRandom;
 use reqwest::Client;
 use serde_json::{json, Value};
 
+use crate::implement_json_display;
+
 pub const CAT_API_URL: &str = "https://cat-fact.herokuapp.com/facts/random?animal_type=cat";
 pub const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
 
@@ -13,10 +18,12 @@ pub const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
 pub type Response = Json<Value>;
 
 /// The animal request parameter.
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct Param {
     animal: String,
 }
+
+implement_json_display!(Param);
 
 /// Returns a 200 OK JSON response and an animal fact payload.
 fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
@@ -32,31 +39,37 @@ fn respond_error(code: StatusCode, error: &str) -> (StatusCode, Response) {
     (code, Json(value))
 }
 
-#[tracing::instrument(name = "Fetching an animal fact", skip(client, params))]
+#[tracing::instrument(
+    name = "Fetching an animal fact",
+    skip(client, params)
+    fields(
+        param = % params.0
+    )
+)]
 pub async fn get_animal_fact(
     State(client): State<Client>,
     params: Query<Param>,
 ) -> (StatusCode, Response) {
-    let mut animal_param = params.0.animal.as_str();
+    let mut param = params.0.animal.as_str();
 
     // choose an animal randomly if the animal param is "any"
-    if animal_param.to_lowercase() == "any" {
+    if param.to_lowercase() == "any" {
         let animals: Vec<&str> = all::<Animal>()
             .collect::<Vec<_>>()
             .iter()
             .map(Animal::as_str)
             .collect();
-        animal_param = animals.choose(&mut rand::thread_rng()).unwrap_or(&"dog");
+        param = animals.choose(&mut rand::thread_rng()).unwrap_or(&"dog");
     }
 
     // match on the animal param and respond with the appropriate fact or an error
-    match animal_param.try_into() {
+    match param.try_into() {
         Ok(p) => match p {
-            Animal::Cat => match Cat::get_fact(&client, CAT_API_URL).await {
+            Animal::Cat => match Cat::get_fact(&client).await {
                 Ok(res) => respond_ok(&res.text, p.as_str()),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
-            Animal::Dog => match Dog::get_fact(&client, DOG_API_URL).await {
+            Animal::Dog => match Dog::get_fact(&client).await {
                 Ok(res) => respond_ok(
                     res.facts.first().unwrap_or(&"Not available".to_string()),
                     p.as_str(),
@@ -102,11 +115,11 @@ impl TryFrom<&str> for Animal {
 
 /// Implements a `get_fact` function for an animal API return struct.
 macro_rules! implement_get_fact {
-    ($t:ty) => {
+    ($t:ty, $url:ident) => {
         impl $t {
-            async fn get_fact(client: &Client, url: &str) -> Result<$t, String> {
+            async fn get_fact(client: &Client) -> Result<$t, String> {
                 let res = client
-                    .get(url)
+                    .get($url)
                     .send()
                     .await
                     .map_err(|err| format!("Error during Request to animal API: {err:?}"))?;
@@ -134,7 +147,7 @@ pub struct Cat {
     text: String,
 }
 
-implement_get_fact!(Cat);
+implement_get_fact!(Cat, CAT_API_URL);
 
 /// The dog API return type.
 #[derive(serde::Deserialize)]
@@ -142,17 +155,18 @@ pub struct Dog {
     facts: Vec<String>,
 }
 
-implement_get_fact!(Dog);
+implement_get_fact!(Dog, DOG_API_URL);
 
 #[cfg(test)]
 mod tests {
-    use crate::handlers::{Cat, Dog, CAT_API_URL, DOG_API_URL};
     use reqwest::Client;
+
+    use crate::handlers::{Cat, Dog};
 
     #[tokio::test]
     async fn test_cat_get_fact() {
         let client = Client::new();
-        let res = Cat::get_fact(&client, CAT_API_URL)
+        let res = Cat::get_fact(&client)
             .await
             .expect("Failed to get cat fact.");
 
@@ -162,7 +176,7 @@ mod tests {
     #[tokio::test]
     async fn test_dog_get_fact() {
         let client = Client::new();
-        let res = Dog::get_fact(&client, DOG_API_URL)
+        let res = Dog::get_fact(&client)
             .await
             .expect("Failed to get dog fact.");
 
