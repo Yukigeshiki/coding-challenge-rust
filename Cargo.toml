@@ -25,6 +25,7 @@ serde-aux = "4"
 serde_json = "1.0.105"
 rand = "0.8.5"
 enum-iterator = "1.4.1"
+thiserror = "1.0.40"
 
 [dependencies.reqwest]
 version = "0.11"

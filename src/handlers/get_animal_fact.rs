@@ -3,10 +3,11 @@ use std::fmt::Formatter;
 
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
-use axum::Json;
+use axum::{async_trait, Json};
 use enum_iterator::{all, Sequence};
 use rand::prelude::SliceRandom;
 use reqwest::Client;
+use serde::de;
 use serde_json::{json, Value};
 
 use crate::implement_json_display;
@@ -33,8 +34,8 @@ fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
 }
 
 /// Returns a JSON response with an HTTP error code and an error message.
-fn respond_error(code: StatusCode, error: &str) -> (StatusCode, Response) {
-    let value = json!({ "error": error });
+fn respond_error(code: StatusCode, error: &Error) -> (StatusCode, Response) {
+    let value = json!({ "error": error.to_string() });
     tracing::error!("{value}");
     (code, Json(value))
 }
@@ -65,11 +66,11 @@ pub async fn get_animal_fact(
     // match on the animal param and respond with the appropriate fact or an error
     match param.try_into() {
         Ok(p) => match p {
-            Animal::Cat => match Cat::get_fact(&client).await {
+            Animal::Cat => match Cat::get_fact(&client, CAT_API_URL).await {
                 Ok(res) => respond_ok(&res.text, p.as_str()),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
-            Animal::Dog => match Dog::get_fact(&client).await {
+            Animal::Dog => match Dog::get_fact(&client, DOG_API_URL).await {
                 Ok(res) => respond_ok(
                     res.facts.first().unwrap_or(&"Not available".to_string()),
                     p.as_str(),
@@ -102,43 +103,39 @@ impl Animal {
 
 /// Implements type conversion from a string literal to an `Animal` enum.
 impl TryFrom<&str> for Animal {
-    type Error = String;
+    type Error = Error;
 
     fn try_from(animal_param: &str) -> Result<Self, Self::Error> {
         match animal_param.to_lowercase().as_str() {
             "cat" => Ok(Self::Cat),
             "dog" => Ok(Self::Dog),
-            other => Err(format!("'{other}' is not a supported animal.")),
+            other => Err(Error::ConvertToAnimalError(other.to_string())),
         }
     }
 }
 
-/// Implements a `get_fact` function for an animal API return struct.
-macro_rules! implement_get_fact {
-    ($t:ty, $url:ident) => {
-        impl $t {
-            async fn get_fact(client: &Client) -> Result<$t, String> {
-                let res = client
-                    .get($url)
-                    .send()
-                    .await
-                    .map_err(|err| format!("Error during Request to animal API: {err:?}"))?;
-                // check status first
-                let status = res.status().as_u16();
-                if !res.status().is_success() {
-                    Err(format!(
-                        "Request to animal API failed with status code: {status}"
-                    ))?;
-                }
-                let text = res
-                    .text()
-                    .await
-                    .map_err(|err| format!("Error fetching text: {err:?}"))?;
-                serde_json::from_str(&text)
-                    .map_err(|err| format!("Error deserializing json string: {err:?}"))
-            }
+/// Provides a `get_fact` function for an animal API return struct.
+#[async_trait]
+trait GetFact {
+    async fn get_fact(client: &Client, url: &str) -> Result<Self, Error>
+    where
+        for<'de> Self: Sized + de::Deserialize<'de>,
+    {
+        let res = client
+            .get(url)
+            .send()
+            .await
+            .map_err(|err| Error::ApiRequestError(err.to_string()))?;
+        // check status first
+        if !res.status().is_success() {
+            Err(Error::ApiResponseError(res.status().as_u16()))?;
         }
-    };
+        let text = res
+            .text()
+            .await
+            .map_err(|err| Error::ToTextError(err.to_string()))?;
+        serde_json::from_str(&text).map_err(|err| Error::DeserializationError(err.to_string()))
+    }
 }
 
 /// The cat API return type.
@@ -147,7 +144,7 @@ pub struct Cat {
     text: String,
 }
 
-implement_get_fact!(Cat, CAT_API_URL);
+impl GetFact for Cat {}
 
 /// The dog API return type.
 #[derive(serde::Deserialize)]
@@ -155,18 +152,38 @@ pub struct Dog {
     facts: Vec<String>,
 }
 
-implement_get_fact!(Dog, DOG_API_URL);
+impl GetFact for Dog {}
+
+/// The Handler error types.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Error during Request to animal API: {0}")]
+    ApiRequestError(String),
+
+    #[error("Response from animal API returned error code: {0}")]
+    ApiResponseError(u16),
+
+    #[error("Error fetching text: {0}")]
+    ToTextError(String),
+
+    #[error("Error deserializing json string: {0}")]
+    DeserializationError(String),
+
+    #[error("'{0}' is not a supported animal.")]
+    ConvertToAnimalError(String),
+}
 
 #[cfg(test)]
 mod tests {
     use reqwest::Client;
 
-    use crate::handlers::{Cat, Dog};
+    use super::GetFact;
+    use super::{Cat, Dog, CAT_API_URL, DOG_API_URL};
 
     #[tokio::test]
     async fn test_cat_get_fact() {
         let client = Client::new();
-        let res = Cat::get_fact(&client)
+        let res = Cat::get_fact(&client, CAT_API_URL)
             .await
             .expect("Failed to get cat fact.");
 
@@ -176,7 +193,7 @@ mod tests {
     #[tokio::test]
     async fn test_dog_get_fact() {
         let client = Client::new();
-        let res = Dog::get_fact(&client)
+        let res = Dog::get_fact(&client, DOG_API_URL)
             .await
             .expect("Failed to get dog fact.");
 
