@@ -127,8 +127,9 @@ trait GetFact {
             .await
             .map_err(|err| Error::ApiRequestError(err.to_string()))?;
         // check status first
-        if !res.status().is_success() {
-            Err(Error::ApiResponseError(res.status().as_u16()))?;
+        let status = res.status();
+        if !status.is_success() {
+            Err(Error::ApiResponseError(status.as_u16()))?;
         }
         let text = res
             .text()
@@ -175,27 +176,59 @@ pub enum Error {
 
 #[cfg(test)]
 mod tests {
+    use super::{Cat, Dog};
     use reqwest::Client;
+    use wiremock::matchers::{any, method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::GetFact;
-    use super::{Cat, Dog, CAT_API_URL, DOG_API_URL};
 
     #[tokio::test]
     async fn test_cat_get_fact() {
-        let client = Client::new();
-        let res = Cat::get_fact(&client, CAT_API_URL)
-            .await
-            .expect("Failed to get cat fact.");
+        let mock_server = MockServer::start().await;
+
+        Mock::given(any())
+            .and(path("/facts/random"))
+            .and(query_param("animal_type", "cat"))
+            .and(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_raw(r#"{"text": "fact"}"#, "application/json"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = Cat::get_fact(
+            &Client::new(),
+            &format!("{}/{}", mock_server.uri(), "facts/random?animal_type=cat"),
+        )
+        .await
+        .expect("Failed to get cat fact.");
 
         assert!(!res.text.is_empty());
     }
 
     #[tokio::test]
     async fn test_dog_get_fact() {
-        let client = Client::new();
-        let res = Dog::get_fact(&client, DOG_API_URL)
-            .await
-            .expect("Failed to get dog fact.");
+        let mock_server = MockServer::start().await;
+
+        Mock::given(any())
+            .and(path("/api/facts"))
+            .and(method("GET"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_raw(r#"{"facts": ["fact"]}"#, "application/json"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let res = Dog::get_fact(
+            &Client::new(),
+            &format!("{}/{}", mock_server.uri(), "api/facts"),
+        )
+        .await
+        .expect("Failed to get dog fact.");
 
         assert!(!res.facts.first().expect("").is_empty());
     }
