@@ -18,7 +18,7 @@ pub const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
 /// Type alias for a JSON response.
 pub type Response = Json<Value>;
 
-/// The animal request parameter.
+/// The animal query parameter.
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Param {
     animal: String,
@@ -34,7 +34,7 @@ fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
 }
 
 /// Returns a JSON response with an HTTP error code and an error message.
-fn respond_error(code: StatusCode, error: &Error) -> (StatusCode, Response) {
+fn respond_error(code: StatusCode, error: &ErrorKind) -> (StatusCode, Response) {
     let value = json!({ "error": error.to_string() });
     tracing::error!("{value}");
     (code, Json(value))
@@ -103,13 +103,13 @@ impl Animal {
 
 /// Implements type conversion from a string literal to an `Animal` enum.
 impl TryFrom<&str> for Animal {
-    type Error = Error;
+    type Error = ErrorKind;
 
     fn try_from(animal_param: &str) -> Result<Self, Self::Error> {
         match animal_param.to_lowercase().as_str() {
             "cat" => Ok(Self::Cat),
             "dog" => Ok(Self::Dog),
-            other => Err(Error::ConvertToAnimalError(other.to_string())),
+            other => Err(ErrorKind::ConvertToAnimal(other.to_string())),
         }
     }
 }
@@ -117,7 +117,7 @@ impl TryFrom<&str> for Animal {
 /// Provides a `get_fact` function for an animal API return struct.
 #[async_trait]
 trait GetFact {
-    async fn get_fact(client: &Client, url: &str) -> Result<Self, Error>
+    async fn get_fact(client: &Client, url: &str) -> Result<Self, ErrorKind>
     where
         for<'de> Self: Sized + de::Deserialize<'de>,
     {
@@ -125,17 +125,17 @@ trait GetFact {
             .get(url)
             .send()
             .await
-            .map_err(|err| Error::ApiRequestError(err.to_string()))?;
+            .map_err(|err| ErrorKind::ApiRequest(err.to_string()))?;
         // check status first
         let status = res.status();
         if !status.is_success() {
-            Err(Error::ApiResponseError(status.as_u16()))?;
+            Err(ErrorKind::ApiResponse(status.as_u16()))?;
         }
         let text = res
             .text()
             .await
-            .map_err(|err| Error::ToTextError(err.to_string()))?;
-        serde_json::from_str(&text).map_err(|err| Error::DeserializationError(err.to_string()))
+            .map_err(|err| ErrorKind::ToText(err.to_string()))?;
+        serde_json::from_str(&text).map_err(|err| ErrorKind::Deserialization(err.to_string()))
     }
 }
 
@@ -157,21 +157,21 @@ impl GetFact for Dog {}
 
 /// The Handler error types.
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum ErrorKind {
     #[error("Error during Request to animal API: {0}")]
-    ApiRequestError(String),
+    ApiRequest(String),
 
     #[error("Response from animal API returned error code: {0}")]
-    ApiResponseError(u16),
+    ApiResponse(u16),
 
     #[error("Error fetching text: {0}")]
-    ToTextError(String),
+    ToText(String),
 
     #[error("Error deserializing json string: {0}")]
-    DeserializationError(String),
+    Deserialization(String),
 
     #[error("'{0}' is not a supported animal.")]
-    ConvertToAnimalError(String),
+    ConvertToAnimal(String),
 }
 
 #[cfg(test)]
