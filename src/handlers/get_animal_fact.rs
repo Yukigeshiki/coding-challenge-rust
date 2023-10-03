@@ -9,19 +9,21 @@ use rand::prelude::SliceRandom;
 use reqwest::Client;
 use serde::de;
 use serde_json::{json, Value};
+use validator::{Validate, ValidationErrors};
 
 use crate::implement_json_display;
 
-pub const CAT_API_URL: &str = "https://cat-fact.herokuapp.com/facts/random?animal_type=cat";
-pub const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
+const CAT_API_URL: &str = "https://cat-fact.herokuapp.com/facts/random?animal_type=cat";
+const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
 
 /// Type alias for a JSON response.
 pub type Response = Json<Value>;
 
 /// The animal query parameter.
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Validate)]
 pub struct Param {
-    animal: String,
+    #[validate(required, length(max = 24))]
+    animal: Option<String>,
 }
 
 implement_json_display!(Param);
@@ -29,51 +31,56 @@ implement_json_display!(Param);
 /// Returns a 200 OK JSON response and an animal fact payload.
 fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
     let value = json!({ "fact": fact, "animal": animal });
-    tracing::info!("{value}");
+    tracing::info!("Success response payload: {value}");
     (StatusCode::OK, Json(value))
 }
 
 /// Returns a JSON response with an HTTP error code and an error message.
-fn respond_error(code: StatusCode, error: &ErrorKind) -> (StatusCode, Response) {
-    let value = json!({ "error": error.to_string() });
-    tracing::error!("{value}");
+fn respond_error(code: StatusCode, err: &ErrorKind) -> (StatusCode, Response) {
+    let value = json!({ "error": err.to_string() });
+    tracing::error!("Fail response payload: {value}");
     (code, Json(value))
 }
 
 #[tracing::instrument(
     name = "Fetching an animal fact",
-    skip(client, params)
+    skip(client, param)
     fields(
-        param = % params.0
+        param = % param.0
     )
 )]
 pub async fn get_animal_fact(
     State(client): State<Client>,
-    params: Query<Param>,
+    param: Query<Param>,
 ) -> (StatusCode, Response) {
-    let mut param = params.0.animal.as_str();
+    // validate param
+    if let Err(err) = param.0.validate() {
+        return respond_error(StatusCode::BAD_REQUEST, &ErrorKind::Validation(err));
+    };
+    let animal = param.0.animal.unwrap(); // will always be Some(v) by this point
+    let mut animal = animal.as_str();
 
     // choose an animal randomly if the animal param is "any"
-    if param.to_lowercase() == "any" {
+    if animal.to_lowercase() == "any" {
         let animals: Vec<&str> = all::<Animal>()
             .collect::<Vec<_>>()
             .iter()
             .map(Animal::as_str)
             .collect();
-        param = animals.choose(&mut rand::thread_rng()).unwrap_or(&"dog");
+        animal = animals.choose(&mut rand::thread_rng()).unwrap_or(&"dog");
     }
 
-    // match on the animal param and respond with the appropriate fact or an error
-    match param.try_into() {
-        Ok(p) => match p {
+    // match on the animal and respond with the appropriate fact or an error
+    match animal.try_into() {
+        Ok(a) => match a {
             Animal::Cat => match Cat::get_fact(&client, CAT_API_URL).await {
-                Ok(res) => respond_ok(&res.text, p.as_str()),
+                Ok(res) => respond_ok(&res.text, animal),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
             Animal::Dog => match Dog::get_fact(&client, DOG_API_URL).await {
                 Ok(res) => respond_ok(
                     res.facts.first().unwrap_or(&"Not available".to_string()),
-                    p.as_str(),
+                    animal,
                 ),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
@@ -158,6 +165,9 @@ impl GetFact for Dog {}
 /// The Handler error types.
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
+    #[error("{0}")]
+    Validation(#[source] ValidationErrors),
+
     #[error("Error during Request to animal API: {0}")]
     ApiRequest(String),
 
