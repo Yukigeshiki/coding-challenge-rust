@@ -1,9 +1,11 @@
-use std::fmt::Display;
-use std::fmt::Formatter;
+use std::fmt::{Display, Formatter};
 
-use axum::extract::{Query, State};
-use axum::http::StatusCode;
-use axum::{async_trait, Json};
+use axum::{
+    async_trait,
+    extract::{Query, State},
+    http::StatusCode,
+    Json,
+};
 use enum_iterator::{all, Sequence};
 use rand::prelude::SliceRandom;
 use reqwest::Client;
