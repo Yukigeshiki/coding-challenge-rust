@@ -13,7 +13,7 @@ use serde::de;
 use serde_json::{json, Value};
 use validator::{Validate, ValidationErrors};
 
-use crate::implement_json_display;
+use crate::impl_json_display;
 
 const CAT_API_URL: &str = "https://cat-fact.herokuapp.com/facts/random?animal_type=cat";
 const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
@@ -28,16 +28,16 @@ pub struct Param {
     animal: Option<String>,
 }
 
-implement_json_display!(Param);
+impl_json_display!(Param);
 
-/// Returns a 200 OK JSON response and an animal fact payload.
+/// Returns a 200 OK JSON response with an animal fact payload.
 fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
     let value = json!({ "fact": fact, "animal": animal });
     tracing::info!("Success response payload: {value}");
     (StatusCode::OK, Json(value))
 }
 
-/// Returns a JSON response with an HTTP error code and an error message.
+/// Returns a JSON response with an HTTP error code with an error message.
 fn respond_error(code: StatusCode, err: &ErrorKind) -> (StatusCode, Response) {
     let value = json!({ "error": err.to_string() });
     tracing::error!("Fail response payload: {value}");

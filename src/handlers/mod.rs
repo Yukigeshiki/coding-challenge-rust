@@ -6,7 +6,7 @@ pub mod health_check;
 
 /// Implements the Debug trait for a DTO.
 #[macro_export]
-macro_rules! implement_json_display {
+macro_rules! impl_json_display {
     ($model:ty) => {
         impl Display for $model {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
