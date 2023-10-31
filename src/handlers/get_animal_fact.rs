@@ -37,7 +37,7 @@ fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
     (StatusCode::OK, Json(value))
 }
 
-/// Returns a JSON response with an HTTP error code with an error message.
+/// Returns a JSON response with an HTTP error code and an error message.
 fn respond_error(code: StatusCode, err: &ErrorKind) -> (StatusCode, Response) {
     let value = json!({ "error": err.to_string() });
     tracing::error!("Fail response payload: {value}");

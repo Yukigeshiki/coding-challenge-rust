@@ -45,13 +45,13 @@ Create an API server using Axum which will return random animal facts. The servi
   - etc.
 
 
-## To run the application:
+### To run the application:
 
 ```
 cargo run
 ```
 
-To test the application:
+### To test the application:
 
 ```
 cargo test

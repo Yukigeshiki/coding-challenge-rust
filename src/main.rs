@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use shuttle_assignment::{
+use coding_challenge_rust::{
     config::get_config,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},

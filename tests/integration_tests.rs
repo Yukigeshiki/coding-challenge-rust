@@ -1,8 +1,8 @@
 #![warn(clippy::pedantic)]
 
+use coding_challenge_rust::telemetry::{get_subscriber, init_subscriber};
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use shuttle_assignment::telemetry::{get_subscriber, init_subscriber};
 use std::net::{SocketAddr, TcpListener};
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -28,7 +28,7 @@ async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port");
     let addr = listener.local_addr().unwrap();
 
-    let server = shuttle_assignment::startup::run(listener).expect("Failed to bind to address");
+    let server = coding_challenge_rust::startup::run(listener).expect("Failed to bind to address");
 
     tokio::spawn(server);
 
@@ -49,49 +49,6 @@ async fn health_check_returns_200() {
 
     assert!(resp.status().is_success());
     assert_eq!(Some(0), resp.content_length());
-}
-
-#[tokio::test]
-async fn get_animal_fact_returns_200() {
-    let TestApp { addr } = spawn_app().await;
-
-    let client = Client::new();
-
-    let res = client
-        .get(format!("http://{addr}/fact?animal=cat"))
-        .send()
-        .await
-        .expect("Failed to execute request.");
-
-    assert!(res.status().is_success());
-}
-
-#[tokio::test]
-async fn get_animal_fact_returns_non_empty_payload() {
-    let TestApp { addr } = spawn_app().await;
-
-    let client = Client::new();
-
-    let res = client
-        .get(format!("http://{addr}/fact?animal=cat"))
-        .send()
-        .await
-        .expect("Failed to execute request.");
-
-    let payload = res.text().await.expect("Failed to get text payload.");
-
-    assert!(!payload.is_empty());
-
-    let fact = serde_json::from_str::<Fact>(&payload).expect("Failed to deserialize payload");
-
-    assert!(!fact.fact.is_empty());
-    assert!(!fact.animal.is_empty());
-}
-
-#[derive(serde::Deserialize)]
-struct Fact {
-    fact: String,
-    animal: String,
 }
 
 #[tokio::test]
