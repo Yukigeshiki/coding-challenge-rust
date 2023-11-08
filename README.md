@@ -1,6 +1,6 @@
 # coding-challenge-rust
 
-[![build](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/ci.yml)
+[![build](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/ci.yml) [![build](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/build.yml/badge.svg)](https://github.com/Yukigeshiki/coding-challenge-rust/actions/workflows/build.yml)
 
 Create an API server using Axum which will return random animal facts. The service should have the following:
 

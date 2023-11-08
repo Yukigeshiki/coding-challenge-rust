@@ -1,6 +1,6 @@
 #![warn(clippy::pedantic)]
 
-use coding_challenge_rust::telemetry::{get_subscriber, init_subscriber};
+use coding_challenge::telemetry::{get_subscriber, init_subscriber};
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use std::net::{SocketAddr, TcpListener};
@@ -28,7 +28,7 @@ async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port");
     let addr = listener.local_addr().unwrap();
 
-    let server = coding_challenge_rust::startup::run(listener).expect("Failed to bind to address");
+    let server = coding_challenge::startup::run(listener).expect("Failed to bind to address");
 
     tokio::spawn(server);
 

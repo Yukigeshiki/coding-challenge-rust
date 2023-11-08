@@ -1,5 +1,5 @@
 [package]
-name = "coding-challenge-rust"
+name = "coding-challenge"
 version = "0.1.0"
 edition = "2021"
 authors = ["Laurence Sonnenberg - laurence@robothouse.io"]
@@ -11,7 +11,7 @@ path = "src/lib.rs"
 
 [[bin]]
 path = "src/main.rs"
-name = "coding-challenge-rust"
+name = "coding-challenge"
 
 [dependencies]
 axum = "0.6.20"

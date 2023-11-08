@@ -1,6 +1,6 @@
 use std::net::TcpListener;
 
-use coding_challenge_rust::{
+use coding_challenge::{
     config::get_config,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
@@ -8,7 +8,7 @@ use coding_challenge_rust::{
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
-    let sub = get_subscriber("shuttle-assignment".into(), "info".into(), std::io::stdout);
+    let sub = get_subscriber("coding-challenge".into(), "info".into(), std::io::stdout);
     init_subscriber(sub);
 
     // halt the program if there are any errors reading config or binding a port
