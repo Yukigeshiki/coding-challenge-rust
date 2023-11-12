@@ -13,8 +13,6 @@ use serde::de;
 use serde_json::{json, Value};
 use validator::{Validate, ValidationErrors};
 
-use crate::impl_json_display;
-
 const CAT_API_URL: &str = "https://cat-fact.herokuapp.com/facts/random?animal_type=cat";
 const DOG_API_URL: &str = "http://dog-api.kinduff.com/api/facts";
 
@@ -28,7 +26,15 @@ pub struct Param {
     animal: Option<String>,
 }
 
-impl_json_display!(Param);
+impl Display for Param {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            serde_json::to_string(self).unwrap_or("Not available".into())
+        )
+    }
+}
 
 /// Returns a 200 OK JSON response with an animal fact payload.
 fn respond_ok(fact: &str, animal: &str) -> (StatusCode, Response) {
