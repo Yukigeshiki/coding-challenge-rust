@@ -28,11 +28,10 @@ pub struct Param {
 
 impl Display for Param {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
+        f.write_fmt(format_args!(
             "{}",
             serde_json::to_string(self).unwrap_or("Not available".into())
-        )
+        ))
     }
 }
 
@@ -194,12 +193,12 @@ pub enum ErrorKind {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cat, Dog};
     use reqwest::Client;
     use wiremock::matchers::{any, method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     use super::GetFact;
+    use super::{Cat, Dog};
 
     #[tokio::test]
     async fn test_cat_get_fact() {
