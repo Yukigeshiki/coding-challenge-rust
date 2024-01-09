@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 
 use axum::{
-    async_trait,
     extract::{Query, State},
     http::StatusCode,
     Json,
@@ -129,7 +128,6 @@ impl TryFrom<&str> for Animal {
 }
 
 /// Provides a `get_fact` function for an animal API return struct.
-#[async_trait]
 trait GetFact {
     async fn get_fact(client: &Client, url: &str) -> Result<Self, ErrorKind>
     where
