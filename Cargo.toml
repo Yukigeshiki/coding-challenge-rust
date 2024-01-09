@@ -14,8 +14,8 @@ path = "src/main.rs"
 name = "coding-challenge"
 
 [dependencies]
-axum = "0.6.20"
-hyper = "0.14"
+axum = "0.7.3"
+hyper = "1.1.0"
 config = "0.13.3"
 tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
@@ -50,8 +50,8 @@ version = "0.3"
 features = ["registry", "env-filter"]
 
 [dependencies.tower-http]
-version = "0.4.3"
-features = ["full"]
+version = "0.5.0"
+features = ["trace", "request-id", "util", "cors"]
 
 [dev-dependencies]
 once_cell = "1.7.2"

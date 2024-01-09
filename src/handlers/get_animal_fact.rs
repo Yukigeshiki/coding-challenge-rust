@@ -84,10 +84,7 @@ pub async fn get_animal_fact(
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
             Animal::Dog => match Dog::get_fact(&client, DOG_API_URL).await {
-                Ok(res) => respond_ok(
-                    res.facts.first().unwrap_or(&"Not available".to_string()),
-                    animal,
-                ),
+                Ok(res) => respond_ok(res.facts.first().unwrap_or(&"Not available".into()), animal),
                 Err(err) => respond_error(StatusCode::INTERNAL_SERVER_ERROR, &err),
             },
         },
@@ -131,7 +128,7 @@ impl TryFrom<&str> for Animal {
 trait GetFact {
     async fn get_fact(client: &Client, url: &str) -> Result<Self, ErrorKind>
     where
-        for<'de> Self: Sized + de::Deserialize<'de>,
+        Self: for<'de> de::Deserialize<'de> + Sized,
     {
         let res = client
             .get(url)

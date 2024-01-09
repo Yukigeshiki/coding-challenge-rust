@@ -3,7 +3,9 @@
 use coding_challenge::telemetry::{get_subscriber, init_subscriber};
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use std::net::{SocketAddr, TcpListener};
+use std::future::IntoFuture;
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
     let name = "test".to_string();
@@ -25,12 +27,14 @@ struct TestApp {
 async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("Failed to bind to random port");
     let addr = listener.local_addr().unwrap();
 
     let server = coding_challenge::startup::run(listener).expect("Failed to bind to address");
 
-    tokio::spawn(server);
+    tokio::spawn(server.into_future());
 
     TestApp { addr }
 }

@@ -1,12 +1,8 @@
-use std::net::TcpListener;
+use tokio::net::TcpListener;
 
 use axum::http::Method;
-use axum::{
-    http::Request,
-    routing::{get, IntoMakeService},
-    Router, Server,
-};
-use hyper::server::conn::AddrIncoming;
+use axum::routing::IntoMakeService;
+use axum::{http::Request, routing::get, serve, serve::Serve, Router};
 use reqwest::Client;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
@@ -20,7 +16,7 @@ use uuid::Uuid;
 
 use crate::handlers::{get_animal_fact, health_check};
 
-pub type App = Server<AddrIncoming, IntoMakeService<Router>>;
+pub type App = Serve<IntoMakeService<Router>, Router>;
 
 #[derive(Clone)]
 struct MakeRequestUuid;
@@ -59,5 +55,5 @@ pub fn run(listener: TcpListener) -> hyper::Result<App> {
         )
         .with_state(client);
 
-    Ok(Server::from_tcp(listener)?.serve(app.into_make_service()))
+    Ok(serve(listener, app.into_make_service()))
 }
