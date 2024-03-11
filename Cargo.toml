@@ -16,7 +16,7 @@ name = "coding-challenge"
 [dependencies]
 axum = "0.7.3"
 hyper = "1.1.0"
-config = "0.13.3"
+config = "0.14.0"
 tracing = "0.1"
 tracing-bunyan-formatter = "0.3"
 tracing-log = "0.2.0"
@@ -24,9 +24,9 @@ tower = "0.4"
 serde-aux = "4"
 serde_json = "1.0.105"
 rand = "0.8.5"
-enum-iterator = "1.4.1"
+enum-iterator = "2.0.0"
 thiserror = "1.0.40"
-validator = { version = "0.16.1", features = ["derive"] }
+validator = { version = "0.17.0", features = ["derive"] }
 
 [dependencies.reqwest]
 version = "0.11"
@@ -55,4 +55,4 @@ features = ["trace", "request-id", "util", "cors"]
 
 [dev-dependencies]
 once_cell = "1.7.2"
-wiremock = "0.5"
+wiremock = "0.6.0"
